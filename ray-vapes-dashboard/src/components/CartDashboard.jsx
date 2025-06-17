@@ -6,9 +6,12 @@ function CartDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const fetchOrders = () => {
+    setLoading(true);
+    setError(null);
+
     axios
-      .get("http://localhost:5050/api/orders")
+      .get("https://ray-vapes-api.onrender.com/api/orders")
       .then((response) => {
         if (response.data.success) {
           setOrders(response.data.data.content);
@@ -18,31 +21,60 @@ function CartDashboard() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Помилка завантаження:", err);
-        setError(err.message || "Помилка при завантаженні");
+        if (err.response) {
+          console.error("Помилка сервера, статус:", err.response.status);
+          console.error("Тіло відповіді:", err.response.data);
+        } else if (err.request) {
+          console.error(
+            "ЗАПИТ відправлено, але відповіді не отримано:",
+            err.request
+          );
+        } else {
+          console.error("Невідома помилка:", err.message);
+        }
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Помилка при завантаженні"
+        );
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, []);
 
-  if (loading) return <p>Завантаження даних...</p>;
-  if (error) return <p>Помилка: {error}</p>;
+  if (loading) return <p>Подождите, идет загрузка данных...</p>;
+  if (error) return <p>Ошибка: {error}</p>;
 
   return (
     <div style={{ maxWidth: "100%", overflowX: "auto", padding: 20 }}>
-      <h1>Список замовлень</h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <h1>Список заказов</h1>
+        <button onClick={fetchOrders} style={buttonStyle}>
+          Обновить страницу
+        </button>
+      </div>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th style={thStyle}>Імʼя</th>
-            <th style={thStyle}>Прізвище</th>
-            <th style={thStyle}>Адреса</th>
+            <th style={thStyle}>Імя</th>
+            <th style={thStyle}>Фамилия</th>
+            <th style={thStyle}>Адрес</th>
             <th style={thStyle}>Телефон</th>
             <th style={thStyle}>Email</th>
             <th style={thStyle}>Telegram</th>
-            <th style={thStyle}>Метод замовлення</th>
-            <th style={thStyle}>Місце самовивозу</th>
-            <th style={thStyle}>Товари (xЦіна)</th>
-            <th style={thStyle}>Загальна сума (€)</th>
+            <th style={thStyle}>Метод</th>
+            <th style={thStyle}>Самовывоз</th>
+            <th style={thStyle}>Товары</th>
+            <th style={thStyle}>Сумма (€)</th>
           </tr>
         </thead>
         <tbody>
@@ -62,10 +94,13 @@ function CartDashboard() {
             } = order;
 
             const itemSummary = items
-              .map(
-                (item) =>
-                  `${item.quantity} × ${(item.priceCents / 100).toFixed(2)}`
-              )
+              .map((item) => {
+                const name = item.product?.name || "Неизвестный товар";
+                const flavour = item.product?.variant?.flavour?.name;
+                const fullName = flavour ? `${name} (${flavour})` : name;
+                const price = (item.priceCents / 100).toFixed(2);
+                return `${item.quantity} × ${fullName} (${price} €)`;
+              })
               .join(", ");
 
             return (
@@ -76,9 +111,15 @@ function CartDashboard() {
                 <td style={tdStyle}>{phoneNumber}</td>
                 <td style={tdStyle}>{email}</td>
                 <td style={tdStyle}>{telegramNickname}</td>
-                <td style={tdStyle}>{orderMethod}</td>
                 <td style={tdStyle}>
-                  {orderMethod === "PICKUP" ? pickupLocation : "-"}
+                  {orderMethod === "PICKUP"
+                    ? "Самовывоз"
+                    : orderMethod === "DELIVERY"
+                    ? "Доставка"
+                    : orderMethod}
+                </td>
+                <td style={tdStyle}>
+                  {orderMethod === "PICKUP" ? pickupLocation || "-" : "-"}
                 </td>
                 <td style={tdStyle}>{itemSummary}</td>
                 <td style={tdStyle}>{(priceCents / 100).toFixed(2)}</td>
@@ -102,6 +143,15 @@ const tdStyle = {
   border: "1px solid #ccc",
   padding: 8,
   verticalAlign: "top",
+};
+
+const buttonStyle = {
+  padding: "8px 16px",
+  backgroundColor: "#007bff",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
 };
 
 export default CartDashboard;
